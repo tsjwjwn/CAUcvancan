@@ -1,0 +1,332 @@
+<!DOCTYPE html><html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fishing Adventure PWA</title>  <meta name="theme-color" content="#1e88e5" />
+  <link rel="manifest" href="manifest.json">  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: Arial, sans-serif;
+    }
+
+    body {
+      overflow: hidden;
+      background: linear-gradient(#4fc3f7, #01579b);
+      color: white;
+    }
+
+    canvas {
+      display: block;
+      background: linear-gradient(#81d4fa 0%, #0288d1 30%, #01579b 100%);
+    }
+
+    #ui {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(0,0,0,0.4);
+      padding: 12px;
+      border-radius: 14px;
+      min-width: 200px;
+      backdrop-filter: blur(4px);
+    }
+
+    #ui h2 {
+      margin-bottom: 8px;
+      font-size: 18px;
+    }
+
+    .btn {
+      margin-top: 8px;
+      padding: 8px 12px;
+      border: none;
+      border-radius: 10px;
+      background: #ffca28;
+      color: black;
+      font-weight: bold;
+      cursor: pointer;
+      width: 100%;
+    }
+
+    .btn:hover {
+      background: #ffd54f;
+    }
+
+    #inventory {
+      margin-top: 10px;
+      max-height: 140px;
+      overflow-y: auto;
+      font-size: 14px;
+    }
+
+    #message {
+      margin-top: 8px;
+      font-size: 13px;
+      color: #fff176;
+    }
+  </style></head>
+<body><div id="ui">
+  <h2>🎣 Fishing Adventure</h2>
+  <div>💰 Tiền: <span id="money">0</span></div>
+  <div>⭐ Level: <span id="level">1</span></div>
+  <div>🎯 Cần câu: <span id="rod">Gỗ</span></div><button class="btn" onclick="castLine()">Câu cá</button> <button class="btn" onclick="upgradeRod()">Nâng cấp cần câu</button>
+
+  <div id="message">Ra biển và bắt cá!</div>  <div id="inventory"></div>
+</div><canvas id="game"></canvas>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+const moneyEl = document.getElementById('money');
+const levelEl = document.getElementById('level');
+const rodEl = document.getElementById('rod');
+const inventoryEl = document.getElementById('inventory');
+const messageEl = document.getElementById('message');
+
+let money = 0;
+let level = 1;
+let rodLevel = 1;
+let inventory = [];
+
+const rodNames = [
+  'Gỗ',
+  'Sắt',
+  'Vàng',
+  'Kim Cương',
+  'Huyền Thoại'
+];
+
+const fishTypes = [
+  {
+    name: '🐟 Cá Nhỏ',
+    value: 10,
+    rarity: 60,
+    color: '#ffffff',
+    size: 20
+  },
+  {
+    name: '🐠 Cá Nhiệt Đới',
+    value: 25,
+    rarity: 30,
+    color: '#ffeb3b',
+    size: 26
+  },
+  {
+    name: '🦈 Cá Mập Mini',
+    value: 80,
+    rarity: 12,
+    color: '#b0bec5',
+    size: 42
+  },
+  {
+    name: '🐡 Cá Độc',
+    value: 120,
+    rarity: 8,
+    color: '#ff7043',
+    size: 35
+  },
+  {
+    name: '🐉 Cá Rồng Biển',
+    value: 250,
+    rarity: 4,
+    color: '#ba68c8',
+    size: 55
+  }
+];
+
+let seaFish = [];
+
+function spawnFish() {
+  seaFish = [];
+
+  for(let i = 0; i < 12; i++) {
+    const fish = fishTypes[Math.floor(Math.random() * fishTypes.length)];
+
+    seaFish.push({
+      x: Math.random() * canvas.width,
+      y: 150 + Math.random() * (canvas.height - 250),
+      speed: 1 + Math.random() * 2,
+      direction: Math.random() > 0.5 ? 1 : -1,
+      type: fish
+    });
+  }
+}
+
+spawnFish();
+
+function drawSea() {
+  ctx.fillStyle = '#0288d1';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  for(let i = 0; i < 30; i++) {
+    ctx.fillStyle = 'rgba(255,255,255,0.08)';
+    ctx.beginPath();
+    ctx.arc(
+      Math.random() * canvas.width,
+      Math.random() * canvas.height,
+      Math.random() * 3,
+      0,
+      Math.PI * 2
+    );
+    ctx.fill();
+  }
+}
+
+function drawBoat() {
+  ctx.fillStyle = '#5d4037';
+  ctx.fillRect(canvas.width/2 - 80, 60, 160, 35);
+
+  ctx.fillStyle = '#8d6e63';
+  ctx.fillRect(canvas.width/2 - 10, 0, 20, 60);
+
+  ctx.fillStyle = 'white';
+  ctx.beginPath();
+  ctx.moveTo(canvas.width/2 + 10, 0);
+  ctx.lineTo(canvas.width/2 + 10, 45);
+  ctx.lineTo(canvas.width/2 + 70, 25);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawFish(fish) {
+  ctx.fillStyle = fish.type.color;
+
+  ctx.beginPath();
+  ctx.ellipse(
+    fish.x,
+    fish.y,
+    fish.type.size,
+    fish.type.size / 2,
+    0,
+    0,
+    Math.PI * 2
+  );
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(fish.x - fish.type.size, fish.y);
+  ctx.lineTo(fish.x - fish.type.size - 15, fish.y - 10);
+  ctx.lineTo(fish.x - fish.type.size - 15, fish.y + 10);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = 'black';
+  ctx.beginPath();
+  ctx.arc(fish.x + 8, fish.y - 3, 2, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function updateFish() {
+  for(const fish of seaFish) {
+    fish.x += fish.speed * fish.direction;
+
+    if(fish.x > canvas.width + 50) {
+      fish.direction = -1;
+    }
+
+    if(fish.x < -50) {
+      fish.direction = 1;
+    }
+
+    drawFish(fish);
+  }
+}
+
+function renderInventory() {
+  inventoryEl.innerHTML = '<b>🎒 Túi đồ:</b><br>';
+
+  if(inventory.length === 0) {
+    inventoryEl.innerHTML += 'Chưa có cá nào';
+    return;
+  }
+
+  inventory.slice(-6).forEach(item => {
+    inventoryEl.innerHTML += `${item}<br>`;
+  });
+}
+
+function randomFish() {
+  const total = fishTypes.reduce((sum, fish) => sum + fish.rarity, 0);
+  let random = Math.random() * total;
+
+  for(const fish of fishTypes) {
+    if(random < fish.rarity) {
+      return fish;
+    }
+
+    random -= fish.rarity;
+  }
+
+  return fishTypes[0];
+}
+
+function castLine() {
+  messageEl.innerText = '⏳ Đang thả cần...';
+
+  setTimeout(() => {
+    const fish = randomFish();
+
+    let bonus = rodLevel * 5;
+    let earned = fish.value + bonus;
+
+    money += earned;
+
+    inventory.push(`${fish.name} (+${earned}$)`);
+
+    if(money > level * 250) {
+      level++;
+      levelEl.innerText = level;
+      messageEl.innerText = '🎉 Lên cấp!';
+    } else {
+      messageEl.innerText = `🎣 Bạn bắt được ${fish.name}`;
+    }
+
+    moneyEl.innerText = money;
+
+    renderInventory();
+  }, 1500);
+}
+
+function upgradeRod() {
+  const cost = rodLevel * 150;
+
+  if(rodLevel >= rodNames.length) {
+    messageEl.innerText = '🔥 Đã đạt cấp tối đa';
+    return;
+  }
+
+  if(money >= cost) {
+    money -= cost;
+    rodLevel++;
+
+    moneyEl.innerText = money;
+    rodEl.innerText = rodNames[rodLevel - 1];
+
+    messageEl.innerText = `⬆️ Nâng cấp cần câu thành ${rodNames[rodLevel - 1]}`;
+  } else {
+    messageEl.innerText = `❌ Cần ${cost}$ để nâng cấp`;
+  }
+}
+
+function gameLoop() {
+  drawSea();
+  drawBoat();
+  updateFish();
+
+  requestAnimationFrame(gameLoop);
+}
+
+gameLoop();
+renderInventory();
+
+if('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js');
+}
+</script></body>
+</html>
